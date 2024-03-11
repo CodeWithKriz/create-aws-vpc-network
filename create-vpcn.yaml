@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create a VPC, 2 Private Subnets, 2 Public Subnets, 2 Route Tables (public & private) and Security Groups for each routes and output its ARN.
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: MyApplication
+    Description: VPC for Given Application Name
+  VpcCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+  SubnetAPublicBlock:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: CIDR block for the Subnet A Public
+  SubnetAPrivateBlock:
+    Type: String
+    Default: 10.0.2.0/24
+    Description: CIDR block for the Subnet A Private
+  SubnetBPublicBlock:
+    Type: String
+    Default: 10.0.3.0/24
+    Description: CIDR block for the Subnet B Public
+  SubnetBPrivateBlock:
+    Type: String
+    Default: 10.0.4.0/24
+    Description: CIDR block for the Subnet B Private
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-VPC
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-InternetGateway
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-PublicRouteTable
+  PublicRouteAssoication:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-PrivateRouteTable
+  SubnetAPublic:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: !Ref SubnetAPublicBlock
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-SubnetAPublic
+  SubnetAPublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref SubnetAPublic
+  SubnetAPrivate:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: !Ref SubnetAPrivateBlock
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-SubnetAPrivate
+  SubnetAPrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref SubnetAPrivate
+  SubnetBPublic:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: us-east-1b
+      CidrBlock: !Ref SubnetBPublicBlock
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-SubnetBPublic
+  SubnetBPublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref SubnetBPublic
+  SubnetBPrivate:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      AvailabilityZone: us-east-1b
+      CidrBlock: !Ref SubnetBPrivateBlock
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-SubnetBPrivate
+  SubnetBPrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref SubnetBPrivate
+  PublicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow incoming traffic to public instances
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-PublicSecurityGroup
+  PrivateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow incoming traffic to private instances
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-PrivateSecurityGroup
+Outputs:
+  VPCId:
+    Value: !Ref MyVPC
+    Description: VPC ID
+  PublicRouteTableId:
+    Value: !Ref PublicRouteTable
+    Description: Route Table ID for Public Routes
+  PrivateRouteTableId:
+    Value: !Ref PrivateRouteTable
+    Description: Route Table ID for Private Routes
+  PublicSubnets:
+    Value: !Join
+      - ','
+      - - !Ref SubnetAPublic
+        - !Ref SubnetBPublic
+    Description: Public Subnet IDs
+  PrivateSubnets:
+    Value: !Join
+      - ','
+      - - !Ref SubnetAPrivate
+        - !Ref SubnetBPrivate
+    Description: Private Subnet IDs
+  PublicSecurityGroupId:
+    Value: !Ref PublicSecurityGroup
+    Description: Security Group ID for Public Subnets
+  PrivateSecurityGroupId:
+    Value: !Ref PrivateSecurityGroup
+    Description: Security Group ID for Private Subnets
+Metadata:
+  AWS::Composer::Groups:
+    Group:
+      Label: Group
+      Members:
+        - PublicRouteTable
+        - PrivateRouteTable
